@@ -172,3 +172,30 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Environment variables
+.env
+
+# Data files
+data/*.txt
+
+# Output/Results
+output/
+*.xlsx
+*.csv
+*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
