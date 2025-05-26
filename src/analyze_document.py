@@ -1,29 +1,24 @@
 import os
-import json
-from openai import AzureOpenAI
+from openai import OpenAI
 import pandas as pd
 from pathlib import Path
 from config import (
-    AZURE_OPENAI_API_KEY,
-    AZURE_OPENAI_API_VERSION,
-    AZURE_OPENAI_ENDPOINT,
-    AZURE_OPENAI_DEPLOYMENT_NAME,
-    DATA_DIR,
-    OUTPUT_DIR,
-    TEMPERATURE,
-    MAX_TOKENS
+    OPENAI_API_KEY,
+    OUTPUT_DIR
 )
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 
-# Azure OpenAI configuration
-client = AzureOpenAI(
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+# OpenAI configuration
+client = OpenAI(
+    api_key=OPENAI_API_KEY
 )
+
+# Assistant ID
+ASSISTANT_ID = "asst_JS37tlMfl3XaB3PpyAIF5ujw"
 
 # Questions structure
 questions = {
@@ -99,62 +94,109 @@ questions = {
     ]
 }
 
-def read_document(file_path):
-    """Read the content of a text file."""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+def create_thread():
+    """Create a new thread for the conversation."""
+    return client.beta.threads.create()
 
-def analyze_with_gpt(document_content, question):
-    """Send a question to Azure OpenAI API and get the response."""
+def analyze_with_assistant():
+    """Use the assistant to answer questions."""
     try:
-        response = client.chat.completions.create(
-            model=AZURE_OPENAI_DEPLOYMENT_NAME,
-            messages=[
-                {"role": "system", "content": "Eres un asistente experto en analizar documentos de planes de seguridad y convivencia ciudadana. Responde de manera concisa y precisa. Si no puedes encontrar la respuesta en el documento, responde 'No hay respuesta'."},
-                {"role": "user", "content": f"Documento:\n{document_content}\n\nPregunta: {question}"}
-            ],
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS
-        )
-        return response.choices[0].message.content.strip()
+        print("Iniciando análisis con el asistente...")
+        
+        # Create a new thread
+        thread = create_thread()
+        print("✓ Hilo de conversación creado")
+        
+        results = []
+        
+        # Process each section of questions
+        for section, section_questions in questions.items():
+            print(f"\nProcesando sección: {section}")
+            
+            # Process each question individually
+            for question in section_questions:
+                print(f"\nEnviando pregunta: {question}")
+                
+                # Add question to the thread
+                client.beta.threads.messages.create(
+                    thread_id=thread.id,
+                    role="user",
+                    content=question
+                )
+                print("✓ Pregunta enviada")
+                
+                # Create a new run for the question
+                run = client.beta.threads.runs.create(
+                    thread_id=thread.id,
+                    assistant_id=ASSISTANT_ID
+                )
+                print("  Esperando respuesta del asistente...")
+                
+                # Wait for the run to complete
+                while True:
+                    run_status = client.beta.threads.runs.retrieve(
+                        thread_id=thread.id,
+                        run_id=run.id
+                    )
+                    if run_status.status == 'completed':
+                        break
+                    elif run_status.status == 'failed':
+                        raise Exception("Run failed")
+                
+                # Get the assistant's response
+                messages = client.beta.threads.messages.list(
+                    thread_id=thread.id,
+                    order='desc',
+                    limit=1
+                )
+                
+                # Store the complete response
+                if messages.data:
+                    response = messages.data[0].content[0].text.value
+                    results.append({
+                        "Sección": section,
+                        "Pregunta": question,
+                        "Respuesta": response
+                    })
+                    print("✓ Respuesta recibida")
+                else:
+                    print("⚠ No se recibió respuesta")
+        
+        return results
     except Exception as e:
-        print(f"Error al procesar la pregunta: {question}")
+        print(f"\n❌ Error al procesar las preguntas")
         print(f"Error: {str(e)}")
-        return "Error en el procesamiento"
-
-def process_document(file_path):
-    """Process a single document and return results as a DataFrame."""
-    print(f"Procesando documento: {file_path}")
-    document_content = read_document(file_path)
-    
-    results = []
-    
-    for section, section_questions in questions.items():
-        for question in section_questions:
-            print(f"Procesando pregunta: {question}")
-            answer = analyze_with_gpt(document_content, question)
-            results.append({
-                "Sección": section,
-                "Pregunta": question,
-                "Respuesta": answer
-            })
-    
-    return pd.DataFrame(results)
+        return None
 
 def main():
     # Create output directory if it doesn't exist
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(exist_ok=True)
     
-    # Process first document in data/raw
-    raw_dir = Path(DATA_DIR)
-    first_doc = next(raw_dir.glob("*.txt"))
+    # Get all answers using the assistant
+    results = analyze_with_assistant()
     
-    # Process document and save results
-    df = process_document(first_doc)
-    output_file = output_dir / f"analisis_{first_doc.stem}.xlsx"
-    df.to_excel(output_file, index=False)
-    print(f"Resultados guardados en: {output_file}")
+    if results is None:
+        print("\n❌ No se pudieron obtener resultados")
+        return
+    
+    # Create DataFrame and save to Excel with timestamp
+    df = pd.DataFrame(results)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = output_dir / f"analisis_resultados_{timestamp}.xlsx"
+    
+    try:
+        df.to_excel(output_file, index=False)
+        print(f"\n✓ Resultados guardados en: {output_file}")
+    except PermissionError:
+        print("\n❌ Error: No se puede guardar el archivo. Por favor, cierra el archivo Excel si está abierto.")
+        # Intentar con un nombre alternativo
+        alt_output_file = output_dir / f"analisis_resultados_{timestamp}_nuevo.xlsx"
+        try:
+            df.to_excel(alt_output_file, index=False)
+            print(f"\n✓ Resultados guardados en: {alt_output_file}")
+        except PermissionError:
+            print("\n❌ Error: No se puede guardar el archivo. Por favor, verifica los permisos de la carpeta output/")
 
 if __name__ == "__main__":
     main() 

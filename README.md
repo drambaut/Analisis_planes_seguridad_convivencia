@@ -1,6 +1,6 @@
 # Análisis de Planes de Seguridad y Convivencia Ciudadana
 
-Este proyecto automatiza el análisis de documentos de planes de seguridad y convivencia ciudadana utilizando Azure OpenAI (ChatGPT).
+Este proyecto automatiza el análisis de documentos de planes de seguridad y convivencia ciudadana utilizando OpenAI GPT-4.
 
 ## Estructura del Proyecto
 
@@ -12,7 +12,7 @@ Este proyecto automatiza el análisis de documentos de planes de seguridad y con
 ├── src/              # Código fuente
 │   ├── analyze_document.py
 │   └── config.py
-├── .env              # Configuración de Azure OpenAI
+├── .env              # Configuración de OpenAI
 ├── requirements.txt  # Dependencias del proyecto
 └── README.md         # Este archivo
 ```
@@ -24,21 +24,13 @@ Este proyecto automatiza el análisis de documentos de planes de seguridad y con
 pip install -r requirements.txt
 ```
 
-2. Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
+2. Crear un archivo `.env` en la raíz del proyecto con la siguiente variable:
 ```
-AZURE_OPENAI_API_KEY="tu-api-key"
-AZURE_OPENAI_API_VERSION="2024-12-01-preview"
-AZURE_OPENAI_ENDPOINT="tu-endpoint"
-AZURE_OPENAI_DEPLOYMENT_NAME="gpt-35-turbo"
+OPENAI_API_KEY="tu-api-key"
 ```
 
-Las variables requeridas son:
-- `AZURE_OPENAI_API_KEY`: Tu clave de API de Azure OpenAI
-- `AZURE_OPENAI_ENDPOINT`: El endpoint de tu instancia de Azure OpenAI
-
-Las variables opcionales son:
-- `AZURE_OPENAI_API_VERSION`: Versión de la API (por defecto: "2024-12-01-preview")
-- `AZURE_OPENAI_DEPLOYMENT_NAME`: Nombre del despliegue (por defecto: "gpt-35-turbo")
+La variable requerida es:
+- `OPENAI_API_KEY`: Tu clave de API de OpenAI
 
 ## Uso
 
