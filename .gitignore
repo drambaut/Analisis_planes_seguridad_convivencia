@@ -199,3 +199,5 @@ ENV/
 .idea/
 *.swp
 *.swo
+
+data/**
